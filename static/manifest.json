@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "AI Text Highlighter",
+  "version": "0.1.0",
+  "description": "Tints post text by a local model's estimated probability that it was AI-written.",
+  "permissions": ["storage", "unlimitedStorage", "offscreen"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": { "default_popup": "popup.html", "default_title": "AI Text Highlighter" },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  }
+}
