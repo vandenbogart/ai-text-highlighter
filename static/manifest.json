@@ -3,7 +3,7 @@
   "name": "AI Text Highlighter",
   "version": "0.1.0",
   "description": "Tints post text by a local model's estimated probability that it was AI-written.",
-  "permissions": ["storage", "offscreen"],
+  "permissions": ["storage", "unlimitedStorage", "offscreen"],
   "background": { "service_worker": "background.js", "type": "module" },
   "content_scripts": [
     {
