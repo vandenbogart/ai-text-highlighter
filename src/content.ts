@@ -51,7 +51,11 @@ async function scoreBatch(
       if (seen.get(element) === text) {
         seen.delete(element);
       }
-    } else if (element.isConnected && seen.get(element) === text) {
+    } else if (
+      element.isConnected &&
+      seen.get(element) === text &&
+      normalize(element.textContent ?? "") === text
+    ) {
       scored.set(element, score);
       paint(element, score);
     }
