@@ -69,7 +69,10 @@ async function load(): Promise<Loaded> {
 let loading: Promise<Loaded> | null = null;
 
 async function infer(texts: string[]): Promise<{ scores: number[]; status: ModelStatus }> {
-  loading ??= load();
+  loading ??= load().catch((error: unknown) => {
+    loading = null;
+    throw error;
+  });
   const { tokenizer, model, status } = await loading;
   const inputs = tokenizer(texts, { padding: true, truncation: true, max_length: MAX_TOKENS });
   const { logits } = (await model(inputs)) as { logits: Tensor };

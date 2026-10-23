@@ -1,9 +1,8 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { copyFile, rename } from "node:fs/promises";
 import { join } from "node:path";
-import { MODEL_ID } from "../src/model";
+import { MODEL_ID, MODEL_REVISION as REVISION } from "../src/model";
 
-const REVISION = "4bf4a146a66df346e5b54e4b5ebda3fee1a19a86";
 const SOURCE_DIR = join("models", `${MODEL_ID.replace("/", "--")}-${REVISION}`);
 const TARGET_DIR = join("dist", "models", MODEL_ID);
 

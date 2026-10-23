@@ -62,7 +62,10 @@ async function score(items: ScoreRequest["items"]): Promise<ScoreResponse> {
     return true;
   });
 
-  const waiting = missing.filter(({ hash }) => inflight.has(hash));
+  const waiting = missing.flatMap(({ hash }) => {
+    const pending = inflight.get(hash);
+    return pending ? [{ hash, pending }] : [];
+  });
   const fresh = missing.filter(({ hash }) => !inflight.has(hash));
   if (fresh.length > 0) {
     const run = infer(fresh.map(({ text }) => text));
@@ -88,8 +91,8 @@ async function score(items: ScoreRequest["items"]): Promise<ScoreResponse> {
       fresh.forEach(({ hash }) => inflight.delete(hash));
     }
   }
-  for (const { hash } of waiting) {
-    const value = await inflight.get(hash)?.catch(() => undefined);
+  for (const { hash, pending } of waiting) {
+    const value = await pending.catch(() => undefined);
     if (value !== undefined) {
       scores[hash] = value;
     }

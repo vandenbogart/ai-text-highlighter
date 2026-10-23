@@ -1,11 +1,12 @@
 import { adapters } from "./adapters";
 import type { ScoreRequest, ScoreResponse } from "./messages";
-import { DEFAULT_THRESHOLD, MODEL_ID } from "./model";
+import { DEFAULT_THRESHOLD, MODEL_ID, MODEL_REVISION } from "./model";
 import { hashText, normalize } from "./text";
 
 const MIN_CHARS = 40;
 const BATCH_SIZE = 8;
 const DEBOUNCE_MS = 250;
+const RETRY_MS = 5000;
 const SCORE_ATTR = "data-ai-text-score";
 
 const adapter = adapters.find((candidate) => candidate.matches(location.hostname));
@@ -16,10 +17,14 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 let running = false;
 let rescan = false;
 
+function clear(element: HTMLElement): void {
+  element.style.removeProperty("background-color");
+  element.removeAttribute(SCORE_ATTR);
+}
+
 function paint(element: HTMLElement, score: number): void {
   if (score < threshold) {
-    element.style.removeProperty("background-color");
-    element.removeAttribute(SCORE_ATTR);
+    clear(element);
     return;
   }
   const strength = threshold >= 1 ? 1 : (score - threshold) / (1 - threshold);
@@ -28,22 +33,30 @@ function paint(element: HTMLElement, score: number): void {
   element.setAttribute(SCORE_ATTR, String(score));
 }
 
-async function scoreBatch(batch: { element: HTMLElement; text: string; hash: string }[]) {
+async function scoreBatch(
+  batch: { element: HTMLElement; text: string; hash: string }[],
+): Promise<boolean> {
   const request: ScoreRequest = {
     type: "score",
     items: batch.map(({ hash, text }) => ({ hash, text })),
   };
-  const response: ScoreResponse | undefined = await chrome.runtime.sendMessage(request);
-  if (!response) {
-    return;
-  }
-  for (const { element, hash } of batch) {
-    const score = response.scores[hash];
-    if (score !== undefined && element.isConnected) {
+  const response: ScoreResponse | undefined = await chrome.runtime
+    .sendMessage(request)
+    .catch(() => undefined);
+  let complete = true;
+  for (const { element, text, hash } of batch) {
+    const score = response?.scores[hash];
+    if (score === undefined) {
+      complete = false;
+      if (seen.get(element) === text) {
+        seen.delete(element);
+      }
+    } else if (element.isConnected && seen.get(element) === text) {
       scored.set(element, score);
       paint(element, score);
     }
   }
+  return complete;
 }
 
 async function scan(): Promise<void> {
@@ -64,14 +77,27 @@ async function scan(): Promise<void> {
     const fresh: { element: HTMLElement; text: string; hash: string }[] = [];
     for (const element of adapter.textElements(document)) {
       const text = normalize(element.textContent ?? "");
-      if (text.length < MIN_CHARS || seen.get(element) === text) {
+      if (seen.get(element) === text) {
         continue;
       }
       seen.set(element, text);
-      fresh.push({ element, text, hash: await hashText(`${MODEL_ID}\n${text}`) });
+      scored.delete(element);
+      clear(element);
+      if (text.length < MIN_CHARS) {
+        continue;
+      }
+      fresh.push({
+        element,
+        text,
+        hash: await hashText(`${MODEL_ID}@${MODEL_REVISION}\n${text}`),
+      });
     }
+    let complete = true;
     for (let start = 0; start < fresh.length; start += BATCH_SIZE) {
-      await scoreBatch(fresh.slice(start, start + BATCH_SIZE));
+      complete = (await scoreBatch(fresh.slice(start, start + BATCH_SIZE))) && complete;
+    }
+    if (!complete) {
+      setTimeout(schedule, RETRY_MS);
     }
   } finally {
     running = false;
