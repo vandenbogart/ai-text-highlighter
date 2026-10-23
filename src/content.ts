@@ -58,6 +58,8 @@ async function scoreBatch(
     ) {
       scored.set(element, score);
       paint(element, score);
+    } else if (seen.get(element) === text) {
+      seen.delete(element);
     }
   }
   return complete;
