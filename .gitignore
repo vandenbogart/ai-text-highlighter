@@ -1,0 +1,9 @@
+node_modules/
+.scratch/
+dist/
+models/
+releases/
+.amp/
+.env
+.env.*
+*.pem
